@@ -1,6 +1,41 @@
 """This library provides parsing and validation of environment variables.
 
 
+Rationale
+---------
+
+Configuration via environment variables has become popular with the rise of
+`twelve-factor apps`_, yet few Python libraries exist to help with it (despite
+the abundance of libraries for command line and file configuration).
+
+When I `looked around`_, most of the solutions I found involved using
+:py:attr:`os.environ` directly, or making clever use of :py:mod:`argparse`. The
+former are not robust enough with regards to typecasting and error handling.
+The latter are inappropriate and overengineered: the reason to prefer envvar
+configuration in the first place is to reduce complexity. We need something
+designed specifically and solely for configuration via environment variables.
+
+The one library I found is `python-decouple`_, which does indeed rationalize
+typecasting of environment variables. However, it also handles file
+configuration, which adds unwanted complexity and muddying of concerns, and it
+doesn't enable robust error messaging. The problem with error handling in
+:py:mod:`decouple` and in ad-hoc usage of :py:attr:`os.environ` is that if you
+have four environment variables wrong, you only find out about them one at a
+time. As with :py:mod:`argparse`, we want to find out about all problems with
+our configuration at once, so that we can solve them all at once instead of
+playing configuration roulette ("Will it work this time? No! How about now?").
+
+This present library is designed to be small in scope, limited to environment
+variables only, and to support robust error messaging. Look into `foreman`_ and
+`honcho`_ for process management tools to complement this library.
+
+.. _twelve-factor apps: http://12factor.net/config
+.. _looked around: https://twitter.com/whit537/status/450780504921755648
+.. _python-decouple: https://pypi.python.org/pypi/python-decouple
+.. _foreman: http://ddollar.github.io/foreman/
+.. _honcho: http://honcho.readthedocs.org/en/latest/
+
+
 Installation
 ------------
 
