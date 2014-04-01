@@ -123,8 +123,8 @@ class Environment(object):
 
     """
 
-    missing = []    #: A list of variable names that are in ``spec`` but not ``_environ``.
-    malformed = []  #: A list of (variable name, error message) tuples for typecasting failures.
+    missing = []    #: A sorted list of variable names that are in ``spec`` but not ``_environ``.
+    malformed = []  #: A sorted list of (variable name, error message) tuples for typecasting failures.
 
     def __init__(self, **spec):
 
