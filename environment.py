@@ -153,7 +153,7 @@ class Environment(object):
                 value = type_(value)
             except:
                 exc_type, exc_instance = sys.exc_info()[:2]
-                msg = "{}: {}".format(exc_type.__name__, exc_instance)
+                msg = "{0}: {0}".format(exc_type.__name__, exc_instance)
                 self.malformed[name] = msg
                 continue
 
