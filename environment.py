@@ -101,7 +101,8 @@ class Environment(object):
 
     The constructor for this class loops through the items in ``_environ``,
     skipping those variables not also named in ``spec``, and parsing those that
-    are. We store variables using lowercased names.
+    are. We store variables using lowercased names, so ``MYVAR`` would end up
+    at ``env.myvar``.
 
     If a variable is mentioned in ``spec`` but is not in ``_environ``, the
     variable name is recorded in the :py:attr:`missing` list. If typecasting a
@@ -111,7 +112,7 @@ class Environment(object):
     If a variable name includes an underscore (``_``), then the first part of
     the name is taken to be a namespace, and all variables beginning with that
     part are collected under an :py:class:`EnvironmentVariableGroup` instance.
-    The rest of the name is the attribute name. So ``MYAPP_VARIABLE_NAME``
+    The rest of the name is the attribute name, so ``MYAPP_VARIABLE_NAME``
     would end up at ``env.myapp.variable_name``. We only support one level of
     namespacing, and malformed variables don't generate namespaces.
 
