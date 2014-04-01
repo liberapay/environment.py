@@ -1,0 +1,20 @@
+language: python
+python:
+  - 2.6
+  - 2.7
+  - 3.2
+  - 3.3
+install:
+  - pip install --use-mirrors --upgrade pytest>=2.4 ./
+script: 
+  - ./runtests.sh
+notifications:
+  email: false
+  irc: 
+    channels:
+      - "irc.freenode.org#gittip"
+    on_success: change
+    on_failure: always
+    template:
+      - "%{repository} (%{branch}:%{commit} by %{author}): %{message} (%{build_url})"
+    skip_join: true
