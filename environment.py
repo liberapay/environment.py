@@ -73,43 +73,30 @@ class Environment(object):
 
     """
 
-    def __init__(self, *whitelist, **spec):
+    def __init__(self, **spec):
         environ = spec.pop('environ', os.environ)
 
         # We're going to mutate environ, so let's work with a copy. It can be a
-        # shallow copy since the values are all strings.
+        # shallow copy since the values are all strings (which are immutable, so
+        # copying them over at all is effectively a deep copy).
         environ = environ.copy()
 
-        # Parse prefixes out of whitelist.
-        whitelist = set(whitelist)
-        prefixes = set()
-        for name in whitelist:
-            if name.endswith('_'):
-                prefix = name[:-1]
-                prefixes.add(prefix)
-                self.__dict__[prefix.lower()] = Section()
+        self.missing = sorted(list(set(spec) - set(environ)))
+        self.malformed = {}
 
-        # Filter out keys that aren't whitelisted.
-        for name in set(environ):
+        for name, value in sorted(environ.items()):
+
             parts = name.split('_')
             first = parts[0]
-            if len(parts) == 1:
-                if first not in whitelist:
-                    environ.pop(name)
-            elif first not in prefixes:
-                environ.pop(name)
-
-        self.missing_keys = set(spec) - set(environ)
-        self.extra_keys = set(environ) - set(spec)
-        self.malformed_values = {}
-
-        for name, value in environ.items():
-            parts = name.split('_')
 
             # Pick an object and attribute name.
             obj, attr = self, name
             if len(parts) > 1:
-                obj = self.__dict__[parts[0].lower()]
+                section = first.lower()
+                if section not in self.__dict__:
+                    # Create a new section if need be.
+                    self.__dict__[section] = Section()
+                obj = self.__dict__[section]
                 attr = '_'.join(parts[1:])
             attr = attr.lower()
 
@@ -126,10 +113,11 @@ class Environment(object):
             try:
                 value = cast(value)
             except:
-                err = str(sys.exc_info()[1])
-                self.malformed_values[name] = err
-
-            obj.__dict__[attr.lower()] = cast(value)
+                exc_type, exc_instance = sys.exc_info()[:2]
+                msg = "{}: {}".format(exc_type.__name__, exc_instance)
+                self.malformed[name] = msg
+            else:
+                obj.__dict__[attr] = value
 
 
 def is_yesish(value):

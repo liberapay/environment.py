@@ -5,12 +5,22 @@ from environment import Environment, is_yesish
 
 
 def test_Environment_basically_works():
-    env = Environment('FOO_', environ={'FOO_BAR': 'baz'})
+    env = Environment(FOO_BAR=None, environ={'FOO_BAR': 'baz'})
     assert env.foo.bar == 'baz'
+    assert env.missing == []
+    assert env.malformed == {}
 
 def test_Environment_unprefixed_works():
-    env = Environment('FOO', environ={'FOO': 'baz'})
+    env = Environment(FOO=None, environ={'FOO': 'baz'})
     assert env.foo == 'baz'
+
+def test_Environment_missing_is_missing():
+    env = Environment(FOO=None, environ={})
+    assert env.missing == ['FOO']
+
+def test_Environment_malformed_is_malformed():
+    env = Environment(FOO=int, environ={'FOO': 'baz'})
+    assert env.malformed == {'FOO': "ValueError: invalid literal for int() with base 10: 'baz'"}
 
 
 def test_is_yesish_1_is_True():
