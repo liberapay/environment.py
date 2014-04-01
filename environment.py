@@ -90,8 +90,8 @@ class Environment(object):
     """This class represents a subset of a process environment.
 
     :param spec: Keyword arguments are of the form ``VARIABLE_NAME=type``. If
-        ``type`` is None then the value will be stored as :py:class:`str`
-        (:py:class:`unicode` under Python 2).
+        ``type`` is :py:class:`None` then the value will be stored as
+        :py:class:`str` (:py:class:`unicode` under Python 2).
 
     :param mapping _environ: By default of course we look at
         :py:attr:`os.environ`, but you can override that with this, which can
