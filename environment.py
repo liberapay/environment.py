@@ -181,7 +181,7 @@ class EnvironmentVariableGroup(object):
 
 
 def is_yesish(value):
-    """Typecase booleanish environment variables to :py:class:`bool`.
+    """Typecast booleanish environment variables to :py:class:`bool`.
 
     :param string value: An environment variable value.
 
