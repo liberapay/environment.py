@@ -67,7 +67,7 @@ or couldn't be typecast:
 >>> env.missing
 ['BLAH']
 >>> env.malformed
-{'BAD': "ValueError: invalid literal for int() with base 10: 'to the bone'"}
+[('BAD', "ValueError: invalid literal for int() with base 10: 'to the bone'")]
 
 You're expected to inspect the contents of :py:attr:`~Environment.missing` and
 :py:attr:`~Environment.malformed` and do your own error reporting.
@@ -107,7 +107,7 @@ class Environment(object):
     If a variable is mentioned in ``spec`` but is not in ``_environ``, the
     variable name is recorded in the :py:attr:`missing` list. If typecasting a
     variable raises an exception, the variable name and an error message are
-    recorded in the :py:attr:`malformed` dictionary.
+    recorded in the :py:attr:`malformed` list.
 
     If a variable name includes an underscore (``_``), then the first part of
     the name is taken to be a namespace, and all variables beginning with that
@@ -119,7 +119,7 @@ class Environment(object):
     """
 
     missing = []    #: A list of variable names that are in ``spec`` but not ``_environ``.
-    malformed = {}  #: A dictionary of error messages for typecasting failures, keyed by variable name.
+    malformed = []  #: A list of (variable name, error message) tuples for typecasting failures.
 
     def __init__(self, **spec):
         environ = spec.pop('_environ', os.environ)
@@ -130,7 +130,7 @@ class Environment(object):
         environ = environ.copy()
 
         self.missing = sorted(list(set(spec) - set(environ)))
-        self.malformed = {}
+        self.malformed = []
 
         for name, value in sorted(environ.items()):
 
@@ -154,7 +154,7 @@ class Environment(object):
             except:
                 exc_type, exc_instance = sys.exc_info()[:2]
                 msg = "{0}: {1}".format(exc_type.__name__, exc_instance)
-                self.malformed[name] = msg
+                self.malformed.append((name, msg))
                 continue
 
             # Pick an object and attribute name.
@@ -173,6 +173,8 @@ class Environment(object):
 
             # Store the value.
             obj.__dict__[attr] = value
+
+        self.malformed.sort()
 
 
 class EnvironmentVariableGroup(object):
