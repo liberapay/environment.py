@@ -86,6 +86,9 @@ class Environment(object):
 
         for name, value in sorted(environ.items()):
 
+            if name not in spec:
+                continue
+
             parts = name.split('_')
             first = parts[0]
 
