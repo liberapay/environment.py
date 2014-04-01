@@ -13,7 +13,7 @@ else:
 
 def test_Environment_basically_works():
     env = Environment(FOO_BAR=str_type, _environ={'FOO_BAR': 'baz'})
-    assert env.foo.bar == 'baz'
+    assert env.foo_bar == 'baz'
     assert env.missing == []
     assert env.malformed == []
 
@@ -32,7 +32,7 @@ def test_Environment_malformed_is_malformed():
 def test_Environment_extra_is_ignored():
     env = Environment(FOO=str_type, _environ={'FOO_BAR_BAZ': '42'})
     assert env.missing == ['FOO']
-    assert sorted(env.__dict__.keys()) == ['malformed', 'missing']
+    assert sorted(env.__dict__.keys()) == ['environ', 'malformed', 'missing', 'prefix']
 
 def test_Environment_typecasting_works():
     env = Environment(FOO=int, _environ={'FOO': '42'})
@@ -45,13 +45,13 @@ def test_Environment_complex_typecasting_works():
     env = Environment(FOO=MyType, _environ={'FOO': '42'})
     assert env.foo.val == 'cheese'
 
-def test_Environment_namespacing_works():
-    env = Environment(FOO_BAR=str_type, _environ={'FOO_BAR': '42'})
-    assert env.foo.bar == '42'
+def test_Environment_prefixing_works():
+    env = Environment('FOO_', BAR=str_type, _environ={'FOO_BAR': '42'})
+    assert env.bar == '42'
 
-def test_Environment_namespacing_works_but_only_one_level():
-    env = Environment(FOO_BAR_BAZ=int, _environ={'FOO_BAR_BAZ': '42'})
-    assert env.foo.bar_baz == 42
+def test_Environment_prefixing_works_arbitrarily():
+    env = Environment('FOO_BA', R_BAZ=int, _environ={'FOO_BAR_BAZ': '42'})
+    assert env.r_baz == 42
 
 def test_Environment_malformed_values_dont_generate_namespaces():
     env = Environment(FOO_BAR_BAZ=int, _environ={'FOO_BAR_BAZ': 'blah'})

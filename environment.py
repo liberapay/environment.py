@@ -64,35 +64,28 @@ First let's pretend that this is our ``os.environ``:
 ...                      , 'BAD': 'to the bone'
 ...                       }
 
+And let's import our stuff:
+
+>>> from environment import Environment, is_yesish
+
 The way the :py:mod:`environment` library works is you instantiate an
 :py:class:`Environment` class like so:
 
->>> from environment import Environment, is_yesish
 >>> env = Environment( FOO=int
-...                  , BAR_BAZ=str
-...                  , BAR_BLOO_BLOO=is_yesish
 ...                  , BLAH=str
 ...                  , BAD=int
 ...                  , _environ=pretend_os_environ
 ...                   )
 
-Keyword arguments (besides ``_environ``, which is special-cased) specify which
-variables to look for and how to typecast them.  Since a process environment
-contains a lot of crap you don't care about, we only parse out variables that
-you explicitly specify in the keyword arguments.
+Keyword arguments specify which variables to look for and how to typecast them.
+Since a process environment contains a lot of crap you don't care about, we
+only parse out variables that you explicitly specify in the keyword arguments.
 
 The resulting object has lowercase attributes for all variables that were asked
 for and found:
 
 >>> env.foo
 42
-
-We support one level of namespacing:
-
->>> env.bar.baz
-'buz'
->>> env.bar.bloo_bloo
-True
 
 There are also :py:attr:`~Environment.missing` and
 :py:attr:`~Environment.malformed` attributes for variables that weren't found
@@ -105,6 +98,19 @@ or couldn't be typecast:
 
 You're expected to inspect the contents of :py:attr:`~Environment.missing` and
 :py:attr:`~Environment.malformed` and do your own error reporting.
+
+If all of the environment variables you care about share a common prefix, you
+can specify this to the constructor to save yourself some clutter:
+
+>>> bar = Environment( 'BAR_'
+...                  , BAZ=str
+...                  , BLOO_BLOO=is_yesish
+...                  , _environ=pretend_os_environ
+...                   )
+>>> bar.baz
+'buz'
+>>> bar.bloo_bloo
+True
 
 
 API Reference
@@ -122,6 +128,11 @@ __version__ = '0.0.0-dev'
 
 class Environment(object):
     """This class represents a subset of a process environment.
+
+    :param string prefix: If all of the environment variables of interest to
+        you share a common prefix, you can specify that here. We will use that
+        prefix when pulling values out of the environment, and the attribute
+        names you end up with won't include the prefix.
 
     :param spec: Keyword arguments are of the form ``VARIABLE_NAME=type``,
         where ``VARIABLE_NAME`` is an environment variable name, and ``type``
@@ -149,26 +160,30 @@ class Environment(object):
     variable raises an exception, the variable name and an error message are
     recorded in the :py:attr:`malformed` list.
 
-    If a variable name includes an underscore (``_``), then the first part of
-    the name is taken to be a namespace, and all variables beginning with that
-    part are collected under an :py:class:`EnvironmentVariableGroup` instance.
-    The rest of the name is the attribute name, so ``MYAPP_VARIABLE_NAME``
-    would end up at ``env.myapp.variable_name``. We only support one level of
-    namespacing, and malformed variables don't generate namespaces.
+    If ``_prefix`` is provided, then we'll use add that to the variable names
+    in ``spec`` when reading the environment:
+
+    >>> env = Environment('FOO_', BAR=int, _environ={'FOO_BAR': '42'})
+    >>> env.prefix
+    'FOO_'
+    >>> env.bar
+    42
 
     """
 
+    environ = {}    #: The dictionary parsed by the constructor.
+    prefix = ''     #: The prefix in use.
     missing = []    #: A sorted list of variable names that are in ``spec`` but not ``_environ``.
     malformed = []  #: A sorted list of (variable name, error message) tuples for typecasting failures.
 
-    def __init__(self, **spec):
+    def __init__(self, prefix='', **spec):
 
         # Default to os.environ.
         decode_values_first = False
         if '_environ' in spec:
-            environ = spec.pop('_environ')
+            _environ = spec.pop('_environ')
         else:
-            environ = os.environ
+            _environ = os.environ
 
             # Under Python 2, adopt Python 3 encoding semantics for os.environ.
             decode_values_first = sys.version_info < (3, 0, 0)
@@ -177,15 +192,19 @@ class Environment(object):
         # We're going to mutate environ, so let's work with a copy. It can be a
         # shallow copy since the values are all strings (which are immutable, so
         # copying them over at all is effectively a deep copy).
-        environ = environ.copy()
+        self.environ = _environ.copy()
 
-        self.missing = sorted(list(set(spec) - set(environ)))
+        self.prefix = prefix
+        self.missing = sorted(list(set(spec) - set(self.environ)))
         self.malformed = []
 
-        for name, value in sorted(environ.items()):
+        for name, value in sorted(self.environ.items()):
 
             # Skip envvars we don't care about.
-            if name not in spec:
+            if not name.startswith(self.prefix):
+                continue
+            unprefixed = name[len(self.prefix):]
+            if unprefixed not in spec:
                 continue
 
             # Ensure we have a string.
@@ -193,7 +212,7 @@ class Environment(object):
                 value = value.decode(encoding)
 
             # Decide how to typecast.
-            type_ = spec[name]
+            type_ = spec[unprefixed]
 
             # Typecast!
             try:
@@ -204,27 +223,8 @@ class Environment(object):
                 self.malformed.append((name, msg))
                 continue
 
-            # Pick an object and attribute name.
-            parts = name.split('_')
-            first = parts[0]
-            obj = self
-            attr = name
-            if len(parts) > 1:
-                section = first.lower()
-                if section not in self.__dict__:
-                    # Create a new section if need be.
-                    self.__dict__[section] = EnvironmentVariableGroup()
-                obj = self.__dict__[section]
-                attr = '_'.join(parts[1:])
-            attr = attr.lower()
-
             # Store the value.
-            obj.__dict__[attr] = value
-
-
-class EnvironmentVariableGroup(object):
-    """Instantiated by :py:class:`Environment` to represent groups of environment variables.
-    """
+            self.__dict__[unprefixed.lower()] = value
 
 
 def is_yesish(value):
