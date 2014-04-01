@@ -93,16 +93,16 @@ class Environment(object):
         ``type`` is :py:class:`None` then the value will be stored as
         :py:class:`str` (:py:class:`unicode` under Python 2).
 
-    :param mapping _environ: By default of course we look at
-        :py:attr:`os.environ`, but you can override that with this, which can
-        only be given as a keyword argument. We operate on a shallow copy of this
-        mapping (though if all values are strings, it's effectively a deep copy,
-        since strings are immutable).
+    :param mapping _environ: By default we look at :py:attr:`os.environ`, of
+        course, but you can override that with this, which can only be given as
+        a keyword argument. We operate on a shallow copy of this mapping
+        (though if all values are strings, it's effectively a deep copy, since
+        strings are immutable).
 
     The constructor for this class loops through the items in ``_environ``,
     skipping those variables not also named in ``spec``, and parsing those that
-    are. We store variables using lowercased names, so ``MYVAR`` would end up
-    at ``env.myvar``.
+    are, using the ``type`` specified. We store variables using lowercased
+    names, so ``MYVAR`` would end up at ``env.myvar``.
 
     If a variable is mentioned in ``spec`` but is not in ``_environ``, the
     variable name is recorded in the :py:attr:`missing` list. If typecasting a
@@ -185,8 +185,8 @@ def is_yesish(value):
 
     :param string value: An environment variable value.
 
-    :return bool: Return :py:class:`True` if ``value`` is ``1``, ``true``, or
-        ``yes`` (case-insensitive), and :py:class:`False` otherwise.
+    :returns: :py:class:`True` if ``value`` is ``1``, ``true``, or ``yes``
+        (case-insensitive); :py:class:`False` otherwise.
 
     """
     return value.lower() in ('1', 'true', 'yes')
