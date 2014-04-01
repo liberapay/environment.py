@@ -174,8 +174,6 @@ class Environment(object):
             # Store the value.
             obj.__dict__[attr] = value
 
-        self.malformed.sort()
-
 
 class EnvironmentVariableGroup(object):
     """Instantiated by :py:class:`Environment` to represent groups of environment variables.
