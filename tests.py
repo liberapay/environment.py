@@ -1,21 +1,28 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import sys
 import pytest
 from environment import Environment, is_yesish
 
 
+if sys.version_info < (3, 0, 0):
+    str_type = unicode
+else:
+    str_type = str
+
+
 def test_Environment_basically_works():
-    env = Environment(FOO_BAR=None, _environ={'FOO_BAR': 'baz'})
+    env = Environment(FOO_BAR=str_type, _environ={'FOO_BAR': 'baz'})
     assert env.foo.bar == 'baz'
     assert env.missing == []
     assert env.malformed == []
 
 def test_Environment_unprefixed_works():
-    env = Environment(FOO=None, _environ={'FOO': 'baz'})
+    env = Environment(FOO=str_type, _environ={'FOO': 'baz'})
     assert env.foo == 'baz'
 
 def test_Environment_missing_is_missing():
-    env = Environment(FOO=None, _environ={})
+    env = Environment(FOO=str_type, _environ={})
     assert env.missing == ['FOO']
 
 def test_Environment_malformed_is_malformed():
@@ -23,7 +30,7 @@ def test_Environment_malformed_is_malformed():
     assert env.malformed == [('FOO', "ValueError: invalid literal for int() with base 10: 'baz'")]
 
 def test_Environment_extra_is_ignored():
-    env = Environment(FOO=None, _environ={'FOO_BAR_BAZ': '42'})
+    env = Environment(FOO=str_type, _environ={'FOO_BAR_BAZ': '42'})
     assert env.missing == ['FOO']
     assert sorted(env.__dict__.keys()) == ['malformed', 'missing']
 
@@ -39,7 +46,7 @@ def test_Environment_complex_typecasting_works():
     assert env.foo.val == 'cheese'
 
 def test_Environment_namespacing_works():
-    env = Environment(FOO_BAR=None, _environ={'FOO_BAR': '42'})
+    env = Environment(FOO_BAR=str_type, _environ={'FOO_BAR': '42'})
     assert env.foo.bar == '42'
 
 def test_Environment_namespacing_works_but_only_one_level():

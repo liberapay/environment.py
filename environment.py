@@ -34,18 +34,17 @@ The way the :py:mod:`environment` library works is you instantiate an
 
 >>> from environment import Environment, is_yesish
 >>> env = Environment( FOO=int
-...                  , BAR_BAZ=None
+...                  , BAR_BAZ=str
 ...                  , BAR_BLOO_BLOO=is_yesish
-...                  , BLAH=None
+...                  , BLAH=str
 ...                  , BAD=int
 ...                  , _environ=pretend_os_environ
 ...                   )
 
 Keyword arguments (besides ``_environ``, which is special-cased) specify which
-variables to look for and how to typecast them. A type of ``None`` will
-result in a value of type :py:class:`str` (:py:class:`unicode` under Python 2).
-Since a process environment contains a lot of crap you don't care about, we
-only parse out variables that you explicitly specify in the keyword arguments.
+variables to look for and how to typecast them.  Since a process environment
+contains a lot of crap you don't care about, we only parse out variables that
+you explicitly specify in the keyword arguments.
 
 The resulting object has lowercase attributes for all variables that were asked
 for and found:
@@ -89,19 +88,25 @@ __version__ = '0.0.0-dev'
 class Environment(object):
     """This class represents a subset of a process environment.
 
-    :param spec: Keyword arguments are of the form ``VARIABLE_NAME=type``. If
-        ``type`` is :py:class:`None` then the value will be stored as
-        :py:class:`str` (:py:class:`unicode` under Python 2).
+    :param spec: Keyword arguments are of the form ``VARIABLE_NAME=type``,
+        where ``VARIABLE_NAME`` is an environment variable name, and ``type``
+        is a typecasting callable.
 
     :param mapping _environ: By default we look at :py:attr:`os.environ`, of
         course, but you can override that with this, which can only be given as
         a keyword argument. We operate on a shallow copy of this mapping
-        (though if all values are strings, it's effectively a deep copy, since
-        strings are immutable).
+        (though it's effectively a deep copy in the normal case where all
+        values are strings, since strings are immutable).
 
     The constructor for this class loops through the items in ``_environ``,
     skipping those variables not also named in ``spec``, and parsing those that
-    are, using the ``type`` specified. We store variables using lowercased
+    are, using the ``type`` specified. Under Python 2, we harmonize with Python
+    3's behavior by decoding environment variable values to :py:class:`unicode`
+    using the result of :py:func:`sys.getfilesystemencoding()` before
+    typecasting. The upshot is that if you want typecasting to be a pass
+    through for a particular variable, you should specify the
+    Python-version-appropriate string type (:py:class:`str` for Python 3,
+    :py:class:`unicode` for Python 2). We store variables using lowercased
     names, so ``MYVAR`` would end up at ``env.myvar``.
 
     If a variable is mentioned in ``spec`` but is not in ``_environ``, the
@@ -122,7 +127,17 @@ class Environment(object):
     malformed = []  #: A list of (variable name, error message) tuples for typecasting failures.
 
     def __init__(self, **spec):
-        environ = spec.pop('_environ', os.environ)
+
+        # Default to os.environ.
+        decode_values_first = False
+        if '_environ' in spec:
+            environ = spec.pop('_environ')
+        else:
+            environ = os.environ
+
+            # Under Python 2, adopt Python 3 encoding semantics for os.environ.
+            decode_values_first = sys.version_info < (3, 0, 0)
+            encoding = sys.getfilesystemencoding()
 
         # We're going to mutate environ, so let's work with a copy. It can be a
         # shallow copy since the values are all strings (which are immutable, so
@@ -139,14 +154,11 @@ class Environment(object):
                 continue
 
             # Ensure we have a string.
-            if sys.version_info < (3, 0, 0):
-                encoding = sys.getfilesystemencoding()
+            if decode_values_first:
                 value = value.decode(encoding)
 
             # Decide how to typecast.
             type_ = spec[name]
-            if type_ is None:
-                type_ = lambda o: o
 
             # Typecast!
             try:
