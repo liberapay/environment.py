@@ -1,0 +1,6 @@
+env
+env2
+dist
+distribute-*
+docs/_build
+*.egg-info
