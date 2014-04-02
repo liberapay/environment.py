@@ -32,7 +32,7 @@ def test_Environment_malformed_is_malformed():
 def test_Environment_extra_is_ignored():
     env = Environment(FOO=str_type, _environ={'FOO_BAR_BAZ': '42'})
     assert env.missing == ['FOO']
-    assert sorted(env.__dict__.keys()) == ['environ', 'malformed', 'missing', 'prefix']
+    assert sorted(env.__dict__.keys()) == ['environ', 'malformed', 'missing', 'parsed', 'prefix']
 
 def test_Environment_typecasting_works():
     env = Environment(FOO=int, _environ={'FOO': '42'})
@@ -53,9 +53,29 @@ def test_Environment_prefixing_works_arbitrarily():
     env = Environment('FOO_BA', R_BAZ=int, _environ={'FOO_BAR_BAZ': '42'})
     assert env.r_baz == 42
 
-def test_Environment_malformed_values_dont_generate_namespaces():
-    env = Environment(FOO_BAR_BAZ=int, _environ={'FOO_BAR_BAZ': 'blah'})
-    assert 'foo' not in env.__dict__
+
+def test_Environment_setattr_stores_attr_in_parsed():
+    env = Environment()
+    env.blah = 'bloo'
+    assert env.parsed == {'blah': 'bloo'}
+
+def test_Environment_setattr_stores_class_attrs_in___dict__():
+    env = Environment()
+    env.missing = 'bloo'
+    assert env.parsed == {}
+    assert env.__dict__['missing'] == 'bloo'
+
+def test_Environment_getattr_gets_attr_from_parsed():
+    env = Environment()
+    env.parsed['blah'] = 'bloo'
+    assert env.blah == 'bloo'
+
+def test_Environment_getattr_raises_AttributeError():
+    env = Environment()
+    err = pytest.raises(AttributeError, lambda: env.blah)
+    expected = "AttributeError: 'Environment' object has no attribute 'blah'"
+    # Python 2 doesn't include the filename and line number in the str.
+    assert str_type(err)[-len(expected):] == expected
 
 
 def test_is_yesish_1_is_True():

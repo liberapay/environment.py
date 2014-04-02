@@ -9,22 +9,23 @@ Configuration via environment variables has become popular with the rise of
 the abundance of libraries for command line and file configuration).
 
 When I `looked around`_, most of the solutions I found involved using
-:py:attr:`os.environ` directly, or making clever use of :py:mod:`argparse` or
-:py:mod:`formencode`. The former are not robust enough with regards to
-typecasting and error handling.  The latter are inappropriate and
-overengineered: the reason to prefer envvar configuration in the first place is
-to reduce complexity, not compound it. We need something designed specifically
-and solely for configuration via environment variables.
+:py:attr:`os.environ` directly, or overloading somewhat related libraries such
+as :py:mod:`argparse` or :py:mod:`formencode`. The former are not robust enough
+with regards to typecasting and error handling. The latter are inappropriate
+and overengineered: the reason to prefer envvar configuration in the first
+place is to reduce complexity, not compound it. We need something designed
+specifically and solely for taking configuration from environment variables.
 
 The one library I found is `python-decouple`_, which does indeed rationalize
 typecasting of environment variables. However, it also handles file
-configuration, which adds unwanted complexity and muddying of concerns, and it
-doesn't enable robust error messaging. The problem with error handling in
-:py:mod:`decouple` and in ad-hoc usage of :py:attr:`os.environ` is that if you
-have four environment variables wrong, you only find out about them one at a
-time. We want to find out about all problems with our configuration at once, so
-that we can solve them all at once instead of playing configuration roulette
-("Will it work this time? No! How about now?").
+configuration, which adds unwanted complexity and (ironically) muddying of
+concerns. Additionally, it doesn't enable robust error messaging. The problem
+with error handling in :py:mod:`decouple` and in ad-hoc usage of
+:py:attr:`os.environ` is that if you have four environment variables wrong, you
+only find out about them one at a time. We want to find out about all problems
+with our configuration at once, so that we can solve them all at once instead
+of playing configuration roulette ("Will it work this time? No! How about
+now?").
 
 This present library is designed to be small in scope, limited to environment
 variables only, and to support robust error messaging. Look into `foreman`_ and
@@ -98,7 +99,13 @@ or couldn't be typecast:
 [('BAD', "ValueError: invalid literal for int() with base 10: 'to the bone'")]
 
 You're expected to inspect the contents of :py:attr:`~Environment.missing` and
-:py:attr:`~Environment.malformed` and do your own error reporting.
+:py:attr:`~Environment.malformed` and do your own error reporting. You're also
+expected to handle defaults yourself at a higher level---this is not a
+general-purpose configuration library---though the
+:py:attr:`~Environment.parsed` dictionary should help with that:
+
+>>> env.parsed
+{'foo': 42}
 
 If all of the environment variables you care about share a common prefix, you
 can specify this to the constructor to save yourself some clutter:
@@ -128,10 +135,10 @@ __version__ = '0.0.0-dev'
 
 
 class Environment(object):
-    """This class represents a subset of a process environment.
+    """Represent a whitelisted, parsed subset of a process environment.
 
     :param string prefix: If all of the environment variables of interest to
-        you share a common prefix, you can specify that here. We will use that
+        you share a common prefix, you can specify that here. We will use this
         prefix when pulling values out of the environment, and the attribute
         names you end up with won't include the prefix.
 
@@ -161,8 +168,8 @@ class Environment(object):
     variable raises an exception, the variable name and an error message are
     recorded in the :py:attr:`malformed` list.
 
-    If ``_prefix`` is provided, then we'll use add that to the variable names
-    in ``spec`` when reading the environment:
+    If ``_prefix`` is provided, then we'll add that to the variable names in
+    ``spec`` when reading the environment:
 
     >>> env = Environment('FOO_', BAR=int, _environ={'FOO_BAR': '42'})
     >>> env.prefix
@@ -170,9 +177,25 @@ class Environment(object):
     >>> env.bar
     42
 
+    All parsed variables are stored in the dictionary at
+    :py:attr:`~Environment.parsed`, and attribute access on
+    :py:class:`Environment` instances for non-class attributes uses this
+    dictionary (rather than :py:attr:`__dict__`):
+
+    >>> env.parsed
+    {'bar': 42}
+    >>> env.bar = 537
+    >>> env.parsed
+    {'bar': 537}
+
+    Use the :py:attr:`~Environment.parsed` dictionary, for example, to fold
+    configuration from the environment together with configuration from other
+    sources (command line, config files, defaults).
+
     """
 
-    environ = {}    #: The dictionary parsed by the constructor.
+    environ = {}    #: A copy of the dictionary we started with.
+    parsed = {}     #: The dictionary we ended up with after parsing in the constructor.
     prefix = ''     #: The prefix in use.
     missing = []    #: A sorted list of variable names that are in ``spec`` but not ``_environ``.
     malformed = []  #: A sorted list of (variable name, error message) tuples for typecasting failures.
@@ -198,6 +221,7 @@ class Environment(object):
         self.prefix = prefix
         self.missing = sorted(list(set(spec) - set(self.environ)))
         self.malformed = []
+        self.parsed = {}
 
         for name, value in sorted(self.environ.items()):
 
@@ -225,7 +249,20 @@ class Environment(object):
                 continue
 
             # Store the value.
-            self.__dict__[unprefixed.lower()] = value
+            self.parsed[unprefixed.lower()] = value
+
+    def __getattr__(self, name):
+        try:
+            return self.parsed[name]
+        except KeyError:
+            cls = self.__class__.__name__
+            raise AttributeError("'{0}' object has no attribute '{1}'".format(cls, name))
+
+    def __setattr__(self, name, value):
+        if name in self.__class__.__dict__:
+            self.__dict__[name] = value
+        else:
+            self.parsed[name] = value
 
 
 def is_yesish(value):
