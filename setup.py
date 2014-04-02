@@ -8,7 +8,7 @@ setup( name='environment'
      , author_email='support@gittip.com'
      , description="This library provides parsing and validation of environment variables."
      , url='https://environment-py.readthedocs.org/'
-     , version='1.0.0'
+     , version='1.0.0-dev'
      , py_modules=['environment']
      , classifiers=[ 'Development Status :: 5 - Production/Stable'
                    , 'Intended Audience :: Developers'
