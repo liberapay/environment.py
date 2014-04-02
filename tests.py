@@ -12,46 +12,57 @@ else:
 
 
 def test_Environment_basically_works():
-    env = Environment(FOO_BAR=str_type, _environ={'FOO_BAR': 'baz'})
+    env = Environment(FOO_BAR=str_type, environ={'FOO_BAR': 'baz'})
     assert env.foo_bar == 'baz'
     assert env.missing == []
     assert env.malformed == []
 
 def test_Environment_unprefixed_works():
-    env = Environment(FOO=str_type, _environ={'FOO': 'baz'})
+    env = Environment(FOO=str_type, environ={'FOO': 'baz'})
     assert env.foo == 'baz'
 
 def test_Environment_missing_is_missing():
-    env = Environment(FOO=str_type, _environ={})
+    env = Environment(FOO=str_type, environ={})
     assert env.missing == ['FOO']
 
 def test_Environment_malformed_is_malformed():
-    env = Environment(FOO=int, _environ={'FOO': 'baz'})
+    env = Environment(FOO=int, environ={'FOO': 'baz'})
     assert env.malformed == [('FOO', "ValueError: invalid literal for int() with base 10: 'baz'")]
 
 def test_Environment_extra_is_ignored():
-    env = Environment(FOO=str_type, _environ={'FOO_BAR_BAZ': '42'})
+    env = Environment(FOO=str_type, environ={'FOO_BAR_BAZ': '42'})
     assert env.missing == ['FOO']
-    assert sorted(env.__dict__.keys()) == ['environ', 'malformed', 'missing', 'parsed', 'prefix']
+
+    expected = ['environ', 'malformed', 'missing', 'parsed', 'prefix', 'spec']
+    assert sorted(env.__dict__.keys()) == expected
 
 def test_Environment_typecasting_works():
-    env = Environment(FOO=int, _environ={'FOO': '42'})
+    env = Environment(FOO=int, environ={'FOO': '42'})
     assert env.foo == 42
 
 def test_Environment_complex_typecasting_works():
     class MyType(object):
         def __init__(self, val):
             self.val = 'cheese'
-    env = Environment(FOO=MyType, _environ={'FOO': '42'})
+    env = Environment(FOO=MyType, environ={'FOO': '42'})
     assert env.foo.val == 'cheese'
 
 def test_Environment_prefixing_works():
-    env = Environment('FOO_', BAR=str_type, _environ={'FOO_BAR': '42'})
+    env = Environment('FOO_', BAR=str_type, environ={'FOO_BAR': '42'})
     assert env.bar == '42'
 
 def test_Environment_prefixing_works_arbitrarily():
-    env = Environment('FOO_BA', R_BAZ=int, _environ={'FOO_BAR_BAZ': '42'})
+    env = Environment('FOO_BA', R_BAZ=int, environ={'FOO_BAR_BAZ': '42'})
     assert env.r_baz == 42
+
+def test_Environment_can_work_with_envvars_named_prefix_and_environ():
+    env = Environment( spec={'prefix': str_type, 'environ': str_type}
+                     , environ={'prefix': 'and', 'environ': 'how'}
+                      )
+    assert env.prefix == ''
+    assert env.parsed ['prefix'] == 'and'
+    assert sorted(env.environ.values()) == ['and', 'how']
+    assert env.parsed['environ'] == 'how'
 
 
 def test_Environment_setattr_stores_attr_in_parsed():

@@ -76,7 +76,7 @@ The way the :py:mod:`environment` library works is you instantiate an
 >>> env = Environment( FOO=int
 ...                  , BLAH=str
 ...                  , BAD=int
-...                  , _environ=pretend_os_environ
+...                  , environ=pretend_os_environ
 ...                   )
 
 Keyword arguments specify which variables to look for and how to typecast them.
@@ -113,7 +113,7 @@ can specify this to the constructor to save yourself some clutter:
 >>> bar = Environment( 'BAR_'
 ...                  , BAZ=str
 ...                  , BLOO_BLOO=is_yesish
-...                  , _environ=pretend_os_environ
+...                  , environ=pretend_os_environ
 ...                   )
 >>> bar.baz
 'buz'
@@ -142,98 +142,153 @@ class Environment(object):
         prefix when pulling values out of the environment, and the attribute
         names you end up with won't include the prefix.
 
-    :param spec: Keyword arguments are of the form ``VARIABLE_NAME=type``,
-        where ``VARIABLE_NAME`` is an environment variable name, and ``type``
-        is a typecasting callable.
+    :param mapping spec: A mapping of environment variable names to typecasters.
 
-    :param mapping _environ: By default we look at :py:attr:`os.environ`, of
-        course, but you can override that with this, which can only be given as
-        a keyword argument. We operate on a shallow copy of this mapping
-        (though it's effectively a deep copy in the normal case where all
-        values are strings, since strings are immutable).
+    :param mapping environ: By default we look at :py:attr:`os.environ`, of
+        course, but you can override that with this. We operate on a shallow
+        copy of this mapping (though it's effectively a deep copy in the normal
+        case where all values are strings, since strings are immutable).
 
-    The constructor for this class loops through the items in ``_environ``,
+    :param kw: Keyword arguments are folded into ``spec``.
+
+    The constructor for this class loops through the items in ``environ``,
     skipping those variables not also named in ``spec``, and parsing those that
     are, using the ``type`` specified. Under Python 2, we harmonize with Python
     3's behavior by decoding environment variable values to :py:class:`unicode`
     using the result of :py:func:`sys.getfilesystemencoding()` before
-    typecasting. The upshot is that if you want typecasting to be a pass
-    through for a particular variable, you should specify the
-    Python-version-appropriate string type (:py:class:`str` for Python 3,
-    :py:class:`unicode` for Python 2). We store variables using lowercased
-    names, so ``MYVAR`` would end up at ``env.myvar``.
+    typecasting. The upshot is that if you want typecasting to be a
+    pass-through for a particular variable, you should specify the
+    Python-version-appropriate string type: :py:class:`str` for Python 3,
+    :py:class:`unicode` for Python 2. We store variables using lowercased
+    names, so ``MYVAR`` would end up at ``env.myvar``:
 
-    If a variable is mentioned in ``spec`` but is not in ``_environ``, the
-    variable name is recorded in the :py:attr:`missing` list. If typecasting a
-    variable raises an exception, the variable name and an error message are
-    recorded in the :py:attr:`malformed` list.
-
-    If ``_prefix`` is provided, then we'll add that to the variable names in
-    ``spec`` when reading the environment:
-
-    >>> env = Environment('FOO_', BAR=int, _environ={'FOO_BAR': '42'})
-    >>> env.prefix
-    'FOO_'
-    >>> env.bar
+    >>> env = Environment(MYVAR=int, environ={'MYVAR': 42})
+    >>> env.myvar
     42
 
-    All parsed variables are stored in the dictionary at
-    :py:attr:`~Environment.parsed`, and attribute access on
-    :py:class:`Environment` instances for non-class attributes uses this
-    dictionary (rather than :py:attr:`__dict__`):
+    If a variable is mentioned in ``spec`` but is not in ``environ``, the
+    variable name is recorded in the :py:attr:`missing` list. If typecasting a
+    variable raises an exception, the variable name and an error message are
+    recorded in the :py:attr:`malformed` list:
 
-    >>> env.parsed
+    >>> env = Environment(MYVAR=int, OTHER=str, environ={'MYVAR': 'blah'})
+    >>> env.missing
+    ['OTHER']
+    >>> env.malformed
+    [('MYVAR', "ValueError: invalid literal for int() with base 10: 'blah'")]
+
+    If ``prefix`` is provided, then we'll add that to the variable names in
+    ``spec`` when reading the environment:
+
+    >>> foo = Environment('FOO_', BAR=int, environ={'FOO_BAR': '42'})
+    >>> foo.prefix
+    'FOO_'
+    >>> foo.bar
+    42
+
+    The copy of ``environ`` that we act on is stored at
+    :py:attr:`~Environment.environ`:
+
+    >>> foo.environ
+    {'FOO_BAR': '42'}
+
+    All parsed variables are stored in the
+    dictionary at :py:attr:`~Environment.parsed`:
+
+    >>> foo.parsed
     {'bar': 42}
-    >>> env.bar = 537
-    >>> env.parsed
-    {'bar': 537}
 
     Use the :py:attr:`~Environment.parsed` dictionary, for example, to fold
     configuration from the environment together with configuration from other
-    sources (command line, config files, defaults).
+    sources (command line, config files, defaults) in higher-order data
+    structures. Attribute access for non-class attributes on
+    :py:class:`Environment` instances uses :py:attr:`~Environment.parsed`
+    rather than :py:attr:`__dict__`, which means that you can set attributes on
+    the instance and they're reflected in :py:attr:`~Environment.parsed`:
+
+    >>> foo.bar = 537
+    >>> foo.parsed
+    {'bar': 537}
+
+    But setting attributes doesn't modify :py:attr:`~Environment.environ`:
+
+    >>> foo.environ
+    {'FOO_BAR': '42'}
 
     """
 
     environ = {}    #: A copy of the dictionary we started with.
     parsed = {}     #: The dictionary we ended up with after parsing in the constructor.
     prefix = ''     #: The prefix in use.
-    missing = []    #: A sorted list of variable names that are in ``spec`` but not ``_environ``.
+    missing = []    #: A sorted list of variable names that are in ``spec`` but not ``environ``.
     malformed = []  #: A sorted list of (variable name, error message) tuples for typecasting failures.
+    spec = {}       #: A mapping of environment variable names to typecasters.
 
-    def __init__(self, prefix='', **spec):
+    def __init__(self, prefix='', spec=None, environ=None, **kw):
 
         # Default to os.environ.
-        decode_values_first = False
-        if '_environ' in spec:
-            _environ = spec.pop('_environ')
-        else:
-            _environ = os.environ
+        _encoding = None
+        if environ is None:
+            environ = os.environ
 
             # Under Python 2, adopt Python 3 encoding semantics for os.environ.
-            decode_values_first = sys.version_info < (3, 0, 0)
-            encoding = sys.getfilesystemencoding()
+            if sys.version_info < (3, 0, 0):
+                _encoding = sys.getfilesystemencoding()
 
         # We're going to mutate environ, so let's work with a copy. It can be a
         # shallow copy since the values are all strings (which are immutable, so
         # copying them over at all is effectively a deep copy).
-        self.environ = _environ.copy()
+        self.environ = environ.copy()
+        del environ  # Just so we don't accidentally use it below.
+
+        if spec is None:
+            spec = {}
+        spec.update(kw)
+        self.spec = spec
+        del spec
 
         self.prefix = prefix
-        self.missing = sorted(list(set(spec) - set(self.environ)))
-        self.malformed = []
-        self.parsed = {}
+        self.missing, self.malformed, self.parsed = \
+                                        self.parse(self.prefix, self.spec, self.environ, _encoding)
 
-        for name, value in sorted(self.environ.items()):
+
+    @staticmethod
+    def parse(prefix, spec, environ, encoding):
+        """Heavy lifting, with no side-effects on ``self``.
+
+        :param string prefix: The string to prefix to variable names when
+            looking them up in ``environ``.
+
+        :param mapping spec: A mapping of environment variable names to
+            typecasters.
+
+        :param mapping environ: A mapping of environment variable names to
+            values.
+
+        :param string encoding: The encoding with which to decode environment
+            variable values before typecasting them, or :py:class:`None` to
+            suppress decoding.
+
+        :returns: A three-tuple, corresponding to
+            :py:attr:`~Environment.missing`, :py:attr:`~Environment.malformed`,
+            and :py:attr:`~Environment.parsed`.
+
+        """
+        missing = sorted(list(set(spec) - set(environ)))
+        malformed = []
+        parsed = {}
+
+        for name, value in sorted(environ.items()):
 
             # Skip envvars we don't care about.
-            if not name.startswith(self.prefix):
+            if not name.startswith(prefix):
                 continue
-            unprefixed = name[len(self.prefix):]
+            unprefixed = name[len(prefix):]
             if unprefixed not in spec:
                 continue
 
             # Ensure we have a string.
-            if decode_values_first:
+            if encoding is not None:
                 value = value.decode(encoding)
 
             # Decide how to typecast.
@@ -245,11 +300,13 @@ class Environment(object):
             except:
                 exc_type, exc_instance = sys.exc_info()[:2]
                 msg = "{0}: {1}".format(exc_type.__name__, exc_instance)
-                self.malformed.append((name, msg))
+                malformed.append((name, msg))
                 continue
 
             # Store the value.
-            self.parsed[unprefixed.lower()] = value
+            parsed[unprefixed.lower()] = value
+
+        return missing, malformed, parsed
 
 
     # Delegate attribute access to the self.parsed dictionary.
