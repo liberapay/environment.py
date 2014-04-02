@@ -251,6 +251,9 @@ class Environment(object):
             # Store the value.
             self.parsed[unprefixed.lower()] = value
 
+
+    # Delegate attribute access to the self.parsed dictionary.
+
     def __getattr__(self, name):
         try:
             return self.parsed[name]
