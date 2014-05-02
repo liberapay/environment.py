@@ -1,6 +1,23 @@
 """This library provides parsing and validation of environment variables.
 
 
+Installation
+------------
+
+:py:mod:`environment` is available on `GitHub`_ and on `PyPI`_::
+
+    $ pip install environment
+
+We `test <https://travis-ci.org/gittip/environment.py>`_ against
+Python 2.6, 2.7, 3.2, and 3.3.
+
+:py:mod:`environment` is MIT-licensed.
+
+
+.. _GitHub: https://github.com/gittip/environment.py
+.. _PyPI: https://pypi.python.org/pypi/environment
+
+
 Rationale
 ---------
 
@@ -36,23 +53,6 @@ variables only, and to support robust error messaging. Look into `foreman`_ and
 .. _python-decouple: https://pypi.python.org/pypi/python-decouple
 .. _foreman: http://ddollar.github.io/foreman/
 .. _honcho: http://honcho.readthedocs.org/en/latest/
-
-
-Installation
-------------
-
-:py:mod:`environment` is available on `GitHub`_ and on `PyPI`_::
-
-    $ pip install environment
-
-We `test <https://travis-ci.org/gittip/environment.py>`_ against
-Python 2.6, 2.7, 3.2, and 3.3.
-
-:py:mod:`environment` is MIT-licensed.
-
-
-.. _GitHub: https://github.com/gittip/environment.py
-.. _PyPI: https://pypi.python.org/pypi/environment
 
 
 Tutorial
